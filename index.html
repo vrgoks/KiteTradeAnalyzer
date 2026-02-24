@@ -18,7 +18,14 @@
     --red: #f87171;
     --text: #e8e6e0;
     --muted: #6b6a66;
-    --accent: #c9a84c;
+    --accent: #e8b455;
+    --accent-bg: rgba(232,180,85,0.08);
+    --cyan: #4ade80;
+    --purple: #e8b455;
+    --grad-main: linear-gradient(135deg, #e8b455 0%, #4ade80 100%);
+    --grad-green: linear-gradient(135deg, #4ade80 0%, #22d3ee 100%);
+    --grad-red:   linear-gradient(135deg, #f87171 0%, #f472b6 100%);
+    --grad-card:  #141416;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
@@ -28,20 +35,18 @@
     min-height: 100vh;
     font-size: 14px;
   }
-  /* Noise texture overlay */
   body::before {
-    content: '';
+    content: \'\';
     position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none; z-index: 0;
-    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix type=\'saturate\' values=\'0\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\' opacity=\'0.04\'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.5;
   }
 
   /* HEADER */
   header {
     position: relative; z-index: 10;
     border-bottom: 1px solid var(--border);
-    padding: 24px 40px;
+    padding: 20px 40px;
     display: flex; align-items: center; justify-content: space-between;
     background: linear-gradient(to bottom, rgba(232,180,85,0.04), transparent);
   }
@@ -51,69 +56,203 @@
     color: var(--gold);
     letter-spacing: -0.5px;
   }
-  .logo span { color: var(--muted); font-size: 13px; font-family: 'JetBrains Mono', monospace; margin-left: 12px; }
+  .logo span { color: var(--muted); font-size: 12px; font-family: 'JetBrains Mono', monospace; margin-left: 10px; }
   .tagline { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
 
   /* UPLOAD ZONE */
   #upload-section {
     position: relative; z-index: 10;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: calc(100vh - 61px);
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 40px;
+    gap: 80px;
+    align-items: center;
+  }
+
+  /* LEFT: Privacy hero */
+  .privacy-hero { padding: 60px 0; }
+  .privacy-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .privacy-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 24px; height: 1px;
+    background: var(--gold);
+    opacity: 0.5;
+  }
+  .privacy-hero h1 {
+    font-family: 'Lora', serif;
+    font-size: 48px;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -1px;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+  .privacy-hero h1 em {
+    font-style: italic;
+    color: var(--gold);
+  }
+  .privacy-hero .lead {
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--muted);
+    margin-bottom: 48px;
+    max-width: 400px;
+  }
+  .privacy-pillars {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border);
+  }
+  .pillar {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pillar-icon {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    min-height: calc(100vh - 73px);
-    padding: 40px;
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+  .pillar-icon svg { opacity: 0.65; }
+  .pillar-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+  .pillar-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* RIGHT: Upload drop zone */
+  .upload-side {
+    padding: 60px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
   .upload-card {
-    border: 1px dashed var(--gold-dim);
-    border-radius: 4px;
-    padding: 80px 100px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 48px 44px 40px;
     text-align: center;
-    max-width: 520px;
-    width: 100%;
-    transition: border-color 0.2s, background 0.2s;
-    cursor: pointer;
     position: relative;
+    cursor: pointer;
+    transition: border-color 0.25s, box-shadow 0.25s;
   }
-  .upload-card:hover, .upload-card.drag-over {
+  .upload-card:hover {
+    border-color: var(--gold-dim);
+    box-shadow: 0 0 0 1px var(--gold-dim), 0 24px 60px rgba(0,0,0,0.4);
+  }
+  .upload-card.drag-over {
     border-color: var(--gold);
-    background: rgba(232,180,85,0.04);
+    box-shadow: 0 0 0 2px var(--gold), 0 24px 60px rgba(232,180,85,0.12);
   }
-  .upload-icon {
-    font-size: 48px; margin-bottom: 24px; display: block;
-    filter: sepia(1) saturate(2) hue-rotate(5deg) brightness(0.8);
+  .drop-indicator {
+    width: 52px; height: 52px;
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    transition: border-color 0.2s;
   }
+  .upload-card:hover .drop-indicator { border-color: var(--gold-dim); }
   .upload-card h2 {
     font-family: 'Lora', serif;
-    font-size: 28px; font-weight: 400;
-    margin-bottom: 12px;
+    font-size: 22px; font-weight: 400;
+    margin-bottom: 10px;
     color: var(--text);
+    letter-spacing: -0.3px;
   }
-  .upload-card p { color: var(--muted); line-height: 1.6; font-size: 13px; }
-  .upload-card p strong { color: var(--gold); }
+  .upload-card .sub {
+    color: var(--muted);
+    line-height: 1.65;
+    font-size: 13px;
+    margin-bottom: 32px;
+  }
+  .upload-card .sub strong { color: var(--gold); font-weight: 500; }
   .upload-btn {
-    margin-top: 32px;
-    display: inline-block;
+    display: inline-flex; align-items: center; gap: 8px;
     background: var(--gold);
     color: #0d0d0f;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
-    padding: 12px 32px;
-    letter-spacing: 1px;
+    padding: 13px 32px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
     cursor: pointer;
     border: none;
-    border-radius: 2px;
-    transition: opacity 0.2s;
+    border-radius: 8px;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    margin-bottom: 14px;
   }
-  .upload-btn:hover { opacity: 0.85; }
+  .upload-btn:hover { opacity: 0.88; box-shadow: 0 4px 20px rgba(232,180,85,0.3); }
   #file-input { display: none; }
   .sample-hint {
-    margin-top: 20px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: var(--muted);
   }
-  .sample-link { color: var(--gold-dim); cursor: pointer; text-decoration: underline; }
+  .sample-link { color: var(--gold-dim); cursor: pointer; text-decoration: underline; transition: color 0.15s; }
   .sample-link:hover { color: var(--gold); }
+
+  /* Green "running local" status badge */
+  .local-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 13px 20px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .local-badge-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    flex-shrink: 0;
+    animation: pulse-dot 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+    50% { opacity: 0.6; box-shadow: 0 0 3px var(--green); }
+  }
+
+  @media (max-width: 860px) {
+    #upload-section { grid-template-columns: 1fr; padding: 40px 24px; gap: 40px; }
+    .privacy-hero h1 { font-size: 36px; }
+    .privacy-hero, .upload-side { padding: 20px 0; }
+  }
 
   /* DASHBOARD */
   #dashboard { display: none; position: relative; z-index: 10; }
@@ -132,11 +271,11 @@
   .file-badge {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
-    color: var(--gold);
-    background: rgba(232,180,85,0.1);
+    color: var(--purple);
+    background: var(--surface2);
     padding: 4px 10px;
-    border-radius: 2px;
-    border: 1px solid rgba(232,180,85,0.2);
+    border-radius: 20px;
+    border: 1px solid var(--border);
   }
   .reset-btn {
     margin-left: auto;
@@ -147,24 +286,24 @@
     border: 1px solid var(--border);
     padding: 6px 14px;
     cursor: pointer;
-    border-radius: 2px;
+    border-radius: 6px;
     transition: color 0.2s, border-color 0.2s;
   }
   .reset-btn:hover { color: var(--text); border-color: var(--muted); }
   .download-btn {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
-    color: #0d0d0f;
+    color: #ffffff;
     background: var(--gold);
     border: none;
     padding: 7px 16px;
     cursor: pointer;
-    border-radius: 2px;
-    font-weight: 500;
-    transition: background 0.2s, opacity 0.2s;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: opacity 0.2s, box-shadow 0.2s;
     letter-spacing: 0.5px;
   }
-  .download-btn:hover { background: #f0c060; }
+  .download-btn:hover { opacity: 0.85; box-shadow: 0 0 16px rgba(232,180,85,0.4); }
   .download-btn svg { vertical-align: middle; margin-right: 5px; margin-top: -2px; }
 
   .dash-body { padding: 32px 40px; }
@@ -179,13 +318,15 @@
   .kpi-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 12px;
     padding: 24px 20px;
     position: relative;
     overflow: hidden;
     animation: fadeUp 0.4s ease forwards;
     opacity: 0;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
+  .kpi-card:hover { border-color: var(--gold-dim); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
   .kpi-card::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0;
@@ -277,7 +418,7 @@
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 12px;
     overflow: hidden;
     animation: fadeUp 0.5s ease 0.3s forwards;
     opacity: 0;
@@ -286,6 +427,7 @@
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 10px;
+    background: transparent;
   }
   .panel-title {
     font-family: 'JetBrains Mono', monospace;
@@ -301,7 +443,6 @@
     color: var(--gold);
     margin-left: auto;
   }
-  /* When hint exists alongside badge, badge takes auto margin, hint anchors after */
   .panel-hint { margin-left: 0; }
   .panel-body { padding: 20px; }
 
@@ -309,7 +450,7 @@
   .panel-hint {
     width: 16px; height: 16px;
     border-radius: 50%;
-    background: var(--surface2);
+    background: var(--accent-bg);
     border: 1px solid var(--border);
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
@@ -358,9 +499,9 @@
     cursor: pointer;
     transition: background 0.15s;
   }
-  .acc-header:hover { background: rgba(255,255,255,0.03); }
+  .acc-header:hover { background: var(--surface2); }
   .acc-sym {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Lora', serif;
     font-size: 15px;
     color: var(--text);
     width: 130px;
@@ -397,7 +538,7 @@
   .acc-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 13px;
   }
   .acc-table thead tr {
     background: rgba(255,255,255,0.03);
@@ -410,19 +551,26 @@
     color: var(--muted);
     padding: 8px 16px;
     text-align: left;
-    font-weight: 400;
+    font-weight: 500;
     border-bottom: 1px solid var(--border);
   }
   .acc-row td {
-    padding: 8px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
   .acc-row:last-child td { border-bottom: none; }
-  .acc-row:hover td { background: rgba(255,255,255,0.02); }
+  .acc-row:hover td { background: var(--surface2); }
   .acc-date { color: var(--text) !important; }
   .acc-time { color: var(--muted) !important; }
   .acc-qty, .acc-price, .acc-val, .acc-exch { color: var(--text); }
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: 0.2px;
+  }
 
   /* CHART BARS */
   .bar-chart { display: flex; flex-direction: column; gap: 10px; }
@@ -506,8 +654,9 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     padding: 2px 8px;
-    border-radius: 2px;
+    border-radius: 4px;
     letter-spacing: 0.5px;
+    border: 1px solid rgba(15,124,90,0.2);
   }
   .badge-sell {
     display: inline-block;
@@ -516,8 +665,9 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     padding: 2px 8px;
-    border-radius: 2px;
+    border-radius: 4px;
     letter-spacing: 0.5px;
+    border: 1px solid rgba(192,57,43,0.2);
   }
 
   /* MONTHLY CHART */
@@ -609,8 +759,7 @@
     display: block;
     height: 1px;
     flex: 1;
-    background: linear-gradient(to right, var(--gold-dim), transparent);
-    opacity: 0.4;
+    background: var(--border);
   }
 
   /* STOCK INTEL GRID */
@@ -623,13 +772,15 @@
   .intel-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 12px;
     padding: 20px;
     position: relative;
     overflow: hidden;
     animation: fadeUp 0.5s ease forwards;
     opacity: 0;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
+  .intel-card:hover { border-color: var(--gold-dim); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
   .intel-card::after {
     content: '';
     position: absolute;
@@ -643,7 +794,8 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: var(--gold-dim);
+    color: var(--accent);
+    opacity: 0.7;
     padding: 4px 0 8px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 4px;
@@ -682,10 +834,21 @@
   }
 
   @media print {
-    header, .dash-header button, .reset-btn, .download-btn, #upload-section { display: none !important; }
+    header, .dash-header button, .reset-btn, .download-btn, #upload-section, .ticker-wrap { display: none !important; }
     body { background: white; color: #111; }
-    .panel, .intel-card, .kpi-card { border: 1px solid #ccc !important; background: white !important; }
-    :root { --bg: white; --surface: #f8f8f8; --surface2: #f0f0f0; --text: #111; --muted: #666; --border: #ddd; }
+    .panel, .intel-card, .kpi-card { border: 1px solid #ddd !important; background: white !important; box-shadow: none !important; }
+    /* Expand all accordion items for print */
+    .acc-body { display: block !important; }
+    .acc-chevron { display: none; }
+    /* Reset gradient text to plain black for print */
+    .section-label, .dash-header h1, .acc-sym, .upload-card h2, .logo {
+      -webkit-text-fill-color: #111 !important;
+      background: none !important;
+      color: #111 !important;
+    }
+    .acc-stat { color: #333 !important; }
+    .acc-table td, .acc-table th { color: #111 !important; font-size: 12px !important; }
+    :root { --bg: white; --surface: #f8f8f8; --surface2: #f0f0f0; --text: #111; --muted: #555; --border: #ddd; }
   }
 
   @media (max-width: 768px) {
@@ -704,14 +867,90 @@
 
 <!-- UPLOAD -->
 <section id="upload-section">
-  <div class="upload-card" id="drop-zone">
-    <span class="upload-icon">📊</span>
-    <h2>Analyse your trades</h2>
-    <p>Export your tradebook from <strong>Zerodha Kite → Console → Reports → Tradebook</strong>, then drop the file here. Accepts <strong>CSV</strong> and <strong>XLSX</strong>.</p>
-    <button class="upload-btn" onclick="document.getElementById('file-input').click()">Choose File</button>
-    <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
-    <p class="sample-hint">No data? <span class="sample-link" onclick="loadSampleData()">Load sample trades</span> to explore the dashboard.</p>
+
+  <!-- LEFT: Privacy hero -->
+  <div class="privacy-hero">
+    <div class="privacy-eyebrow">Built for privacy</div>
+
+    <h1>Your trades stay<br><em>on your machine.</em></h1>
+
+    <p class="lead">A trade history is one of the more personal financial documents you own. This tool analyses it without ever seeing it — no servers, no accounts, no cloud.</p>
+
+    <div class="privacy-pillars">
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1.5L2.5 4v4c0 3.2 2.4 5.8 5.5 6.3 3.1-.5 5.5-3.1 5.5-6.3V4L8 1.5z" stroke="#e8b455" stroke-width="1.3" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="pillar-title">Zero data transmission</div>
+          <div class="pillar-desc">Your file is read locally by your browser. Nothing is sent anywhere — not to us, not to anyone.</div>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="#e8b455" stroke-width="1.3"/>
+            <path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="#e8b455" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="pillar-title">No account required</div>
+          <div class="pillar-desc">No sign-up. No email. No password. Nothing to breach, nothing to leak.</div>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6" stroke="#e8b455" stroke-width="1.3"/>
+            <path d="M5.5 8l2 2 3-3" stroke="#e8b455" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="pillar-title">No tracking, no analytics</div>
+          <div class="pillar-desc">No cookies that follow you. No analytics scripts phoning home. Just a file and a browser.</div>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M4 4V3a1 1 0 011-1h6a1 1 0 011 1v1M6 8v4M10 8v4" stroke="#e8b455" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M3 4l1 9h8l1-9" stroke="#e8b455" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="pillar-title">Close the tab, it's gone</div>
+          <div class="pillar-desc">Nothing persists. When you close the browser, your data disappears completely. No trace left behind.</div>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- RIGHT: File drop -->
+  <div class="upload-side">
+    <div class="upload-card" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="drop-indicator">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 3v10M6 9l4 4 4-4" stroke="#6b6a66" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 15h14" stroke="#6b6a66" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>Analyse your trades</h2>
+      <p class="sub">Export from <strong>Kite → Console → Reports → Tradebook</strong> and drop the file here. Accepts <strong>CSV</strong> and <strong>XLSX</strong>.</p>
+      <button class="upload-btn" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
+        Choose File
+      </button>
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+      <p class="sample-hint">No file? <span class="sample-link" onclick="event.stopPropagation(); loadSampleData()">Load sample trades</span> to explore.</p>
+    </div>
+
+    <div class="local-badge">
+      <span class="local-badge-dot"></span>
+      Running entirely in your browser — no server involved
+    </div>
+  </div>
+
 </section>
 
 <!-- DASHBOARD -->
@@ -724,7 +963,7 @@
       <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L2 4.5h3V1h2v3.5h3L6 8.5zm-4 2v1h8v-1H2z"/></svg>
       Download HTML
     </button>
-    <button class="download-btn" onclick="downloadPDF()" style="background:var(--green);color:#0d0d0f;">
+    <button class="download-btn pdf-btn" onclick="downloadPDF()">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L2 4.5h3V1h2v3.5h3L6 8.5zm-4 2v1h8v-1H2z"/></svg>
       Download PDF
     </button>
@@ -1671,13 +1910,13 @@ function renderDashboard(rawRows, filename) {
 
       const exchColor = (t.exchange||'NSE').toUpperCase().includes('BSE') ? '#60a5fa' : 'var(--green)';
       return `<tr class="acc-row">
-        <td class="mono acc-date"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Trade Date</span>${dateStr}</td>
-        <td class="mono acc-time"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Exec. Time</span>${timeStr || '—'}</td>
-        <td><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:3px">Action</span><span class="${isBuy?'badge-buy':'badge-sell'}">${isBuy?'BUY':'SELL'}</span></td>
-        <td class="mono acc-qty"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Quantity</span>${Math.round(parseFloat(t.quantity)||0)} shares</td>
-        <td class="mono acc-price"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Price / Share</span>₹${parseFloat(t.price||0).toFixed(2)}</td>
-        <td class="mono acc-val" style="color:var(--gold)"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Trade Value</span>₹${formatNum(val)}</td>
-        <td class="mono"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Exchange</span><span style="color:${exchColor};font-weight:500">${(t.exchange||'NSE').toUpperCase().includes('BSE')?'BSE':'NSE'}</span></td>
+        <td class="mono acc-date">${dateStr}</td>
+        <td class="mono acc-time">${timeStr || '—'}</td>
+        <td><span class="${isBuy?'badge-buy':'badge-sell'}">${isBuy?'BUY':'SELL'}</span></td>
+        <td class="mono acc-qty">${Math.round(parseFloat(t.quantity)||0)} shares</td>
+        <td class="mono acc-price">₹${parseFloat(t.price||0).toFixed(2)}</td>
+        <td class="mono acc-val" style="color:var(--gold)">₹${formatNum(val)}</td>
+        <td class="mono"><span style="color:${exchColor};font-weight:500">${(t.exchange||'NSE').toUpperCase().includes('BSE')?'BSE':'NSE'}</span></td>
       </tr>`;
     }).join('');
 
