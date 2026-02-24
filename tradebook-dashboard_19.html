@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tradebook — Kite Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141416;
+    --surface2: #1c1c1f;
+    --border: #2a2a2e;
+    --gold: #e8b455;
+    --gold-dim: #a07a32;
+    --green: #4ade80;
+    --red: #f87171;
+    --text: #e8e6e0;
+    --muted: #6b6a66;
+    --accent: #c9a84c;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    font-size: 14px;
+  }
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+    opacity: 0.5;
+  }
+
+  /* HEADER */
+  header {
+    position: relative; z-index: 10;
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(to bottom, rgba(232,180,85,0.04), transparent);
+  }
+  .logo {
+    font-family: 'Lora', serif;
+    font-size: 22px;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--muted); font-size: 13px; font-family: 'JetBrains Mono', monospace; margin-left: 12px; }
+  .tagline { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  /* UPLOAD ZONE */
+  #upload-section {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    min-height: calc(100vh - 73px);
+    padding: 40px;
+  }
+  .upload-card {
+    border: 1px dashed var(--gold-dim);
+    border-radius: 4px;
+    padding: 80px 100px;
+    text-align: center;
+    max-width: 520px;
+    width: 100%;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+    position: relative;
+  }
+  .upload-card:hover, .upload-card.drag-over {
+    border-color: var(--gold);
+    background: rgba(232,180,85,0.04);
+  }
+  .upload-icon {
+    font-size: 48px; margin-bottom: 24px; display: block;
+    filter: sepia(1) saturate(2) hue-rotate(5deg) brightness(0.8);
+  }
+  .upload-card h2 {
+    font-family: 'Lora', serif;
+    font-size: 28px; font-weight: 400;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+  .upload-card p { color: var(--muted); line-height: 1.6; font-size: 13px; }
+  .upload-card p strong { color: var(--gold); }
+  .upload-btn {
+    margin-top: 32px;
+    display: inline-block;
+    background: var(--gold);
+    color: #0d0d0f;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 12px 32px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    border-radius: 2px;
+    transition: opacity 0.2s;
+  }
+  .upload-btn:hover { opacity: 0.85; }
+  #file-input { display: none; }
+  .sample-hint {
+    margin-top: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .sample-link { color: var(--gold-dim); cursor: pointer; text-decoration: underline; }
+  .sample-link:hover { color: var(--gold); }
+
+  /* DASHBOARD */
+  #dashboard { display: none; position: relative; z-index: 10; }
+  
+  .dash-header {
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(to bottom, rgba(232,180,85,0.03), transparent);
+  }
+  .dash-header h1 {
+    font-family: 'Lora', serif;
+    font-size: 20px; font-weight: 400;
+    color: var(--text);
+  }
+  .file-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    background: rgba(232,180,85,0.1);
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid rgba(232,180,85,0.2);
+  }
+  .reset-btn {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .reset-btn:hover { color: var(--text); border-color: var(--muted); }
+  .download-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #0d0d0f;
+    background: var(--gold);
+    border: none;
+    padding: 7px 16px;
+    cursor: pointer;
+    border-radius: 2px;
+    font-weight: 500;
+    transition: background 0.2s, opacity 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .download-btn:hover { background: #f0c060; }
+  .download-btn svg { vertical-align: middle; margin-right: 5px; margin-top: -2px; }
+
+  .dash-body { padding: 32px 40px; }
+
+  /* KPI CARDS */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.4s ease forwards;
+    opacity: 0;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--gold);
+    opacity: 0.5;
+  }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.red::before { background: var(--red); }
+  .kpi-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-family: 'Lora', serif;
+    font-size: 32px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .kpi-split {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .kpi-split-item {
+    flex: 1;
+  }
+  .kpi-split-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 3px;
+  }
+  .kpi-split-val {
+    font-family: 'Lora', serif;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .kpi-split-val.green { color: var(--green); }
+  .kpi-split-val.red { color: var(--red); }
+  .kpi-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .xirr-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--gold-dim);
+    margin-top: 6px;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+  .kpi-card:nth-child(2) { animation-delay: 0.1s; }
+  .kpi-card:nth-child(3) { animation-delay: 0.15s; }
+  .kpi-card:nth-child(4) { animation-delay: 0.2s; }
+  .kpi-card:nth-child(5) { animation-delay: 0.25s; }
+  .kpi-card:nth-child(6) { animation-delay: 0.3s; }
+
+  /* SECTION LAYOUT */
+  .section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .section-full { margin-bottom: 24px; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease 0.3s forwards;
+    opacity: 0;
+  }
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    flex: 1;
+  }
+  .panel-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    margin-left: auto;
+  }
+  /* When hint exists alongside badge, badge takes auto margin, hint anchors after */
+  .panel-hint { margin-left: 0; }
+  .panel-body { padding: 20px; }
+
+  /* ? TOOLTIP HINTS */
+  .panel-hint {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color 0.2s, color 0.2s;
+    margin-left: 6px;
+  }
+  .panel-hint:hover { border-color: var(--gold); color: var(--gold); }
+  .panel-hint::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 260px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: 'Inter', sans-serif;
+    white-space: normal;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .panel-hint:hover::after { opacity: 1; }
+
+  /* ACCORDION TRADE LOG */
+  .acc-item { border-bottom: 1px solid var(--border); }
+  .acc-item:last-child { border-bottom: none; }
+  .acc-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .acc-header:hover { background: rgba(255,255,255,0.03); }
+  .acc-sym {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    color: var(--text);
+    width: 130px;
+    flex-shrink: 0;
+  }
+  .acc-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+  .acc-stat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+  }
+  .acc-stat.green { color: var(--green); }
+  .acc-stat.red   { color: var(--red); }
+  .acc-stat.muted { color: var(--muted); }
+  .acc-stat.gold  { color: var(--gold); }
+  .acc-chevron {
+    font-size: 16px;
+    color: var(--muted);
+    transition: transform 0.2s ease, color 0.2s;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+    line-height: 1;
+  }
+  .acc-body { padding: 0 0 8px 0; overflow-x: auto; }
+  .acc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .acc-table thead tr {
+    background: rgba(255,255,255,0.03);
+  }
+  .acc-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    padding: 8px 16px;
+    text-align: left;
+    font-weight: 400;
+    border-bottom: 1px solid var(--border);
+  }
+  .acc-row td {
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+  .acc-row:last-child td { border-bottom: none; }
+  .acc-row:hover td { background: rgba(255,255,255,0.02); }
+  .acc-date { color: var(--text) !important; }
+  .acc-time { color: var(--muted) !important; }
+  .acc-qty, .acc-price, .acc-val, .acc-exch { color: var(--text); }
+
+  /* CHART BARS */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    width: 100px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+    position: relative;
+  }
+  .bar-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* WIN/LOSS DONUT */
+  /* ── TRADE TABLE (kept for potential future use) ── */
+    display: flex; align-items: center; gap: 32px;
+    padding: 12px 0;
+  }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend { display: flex; flex-direction: column; gap: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 10px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-val {
+    font-family: 'Lora', serif;
+    font-size: 20px;
+    color: var(--text);
+  }
+
+  /* TRADE TABLE */
+  .trade-table { width: 100%; border-collapse: collapse; }
+  .trade-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .trade-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(42,42,46,0.5);
+    font-size: 13px;
+  }
+  .trade-table tr:last-child td { border-bottom: none; }
+  .trade-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .trade-table .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .badge-buy {
+    display: inline-block;
+    background: rgba(74,222,128,0.1);
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+  .badge-sell {
+    display: inline-block;
+    background: rgba(248,113,113,0.1);
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  /* MONTHLY CHART */
+  .month-chart { display: flex; align-items: flex-end; gap: 8px; height: 140px; padding-top: 16px; }
+  .month-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .month-bar-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; }
+  .month-bar {
+    width: 100%;
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+    transition: height 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+  .month-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* TICKER SCROLL */
+  .ticker-wrap {
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 10px 0;
+    margin-bottom: 24px;
+  }
+  .ticker-inner {
+    display: flex; gap: 40px;
+    animation: ticker 30s linear infinite;
+    white-space: nowrap;
+  }
+  .ticker-item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ticker-item span { color: var(--text); }
+  .ticker-item .up { color: var(--green); }
+  .ticker-item .dn { color: var(--red); }
+  @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* INSIGHT CARDS */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    animation: fadeUp 0.5s ease 0.4s forwards;
+    opacity: 0;
+  }
+  .insight-icon { font-size: 22px; margin-bottom: 12px; display: block; }
+  .insight-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .insight-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .insight-text strong { color: var(--gold); }
+
+  /* SECTION LABELS */
+  .section-label {
+    font-family: 'Lora', serif;
+    font-size: 18px;
+    color: var(--text);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after {
+    content: '';
+    display: block;
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, var(--gold-dim), transparent);
+    opacity: 0.4;
+  }
+
+  /* STOCK INTEL GRID */
+  .stock-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .intel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease forwards;
+    opacity: 0;
+  }
+  .intel-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: var(--border);
+  }
+  .intel-sub-label {
+    grid-column: 1 / -1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--gold-dim);
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .intel-role {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .intel-symbol {
+    font-family: 'Lora', serif;
+    font-size: 26px;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .intel-symbol.green { color: var(--green); }
+  .intel-symbol.red { color: var(--red); }
+  .intel-symbol.gold { color: var(--gold); }
+  .intel-detail {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .intel-detail strong { color: var(--text); }
+  .empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  @media print {
+    header, .dash-header button, .reset-btn, .download-btn, #upload-section { display: none !important; }
+    body { background: white; color: #111; }
+    .panel, .intel-card, .kpi-card { border: 1px solid #ccc !important; background: white !important; }
+    :root { --bg: white; --surface: #f8f8f8; --surface2: #f0f0f0; --text: #111; --muted: #666; --border: #ddd; }
+  }
+
+  @media (max-width: 768px) {
+    header, .dash-header, .dash-body { padding-left: 20px; padding-right: 20px; }
+    .section-grid { grid-template-columns: 1fr; }
+    .upload-card { padding: 48px 32px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Tradebook <span>/ Kite Analysis</span></div>
+  <div class="tagline">Drop your CSV or XLSX. Read your trades.</div>
+</header>
+
+<!-- UPLOAD -->
+<section id="upload-section">
+  <div class="upload-card" id="drop-zone">
+    <span class="upload-icon">📊</span>
+    <h2>Analyse your trades</h2>
+    <p>Export your tradebook from <strong>Zerodha Kite → Console → Reports → Tradebook</strong>, then drop the file here. Accepts <strong>CSV</strong> and <strong>XLSX</strong>.</p>
+    <button class="upload-btn" onclick="document.getElementById('file-input').click()">Choose File</button>
+    <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+    <p class="sample-hint">No data? <span class="sample-link" onclick="loadSampleData()">Load sample trades</span> to explore the dashboard.</p>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="dash-header">
+    <h1>Trade Analysis</h1>
+    <div class="file-badge" id="file-badge">—</div>
+    <button class="reset-btn" onclick="resetDashboard()">↩ Upload new file</button>
+    <button class="download-btn" onclick="downloadHTML()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L2 4.5h3V1h2v3.5h3L6 8.5zm-4 2v1h8v-1H2z"/></svg>
+      Download HTML
+    </button>
+    <button class="download-btn" onclick="downloadPDF()" style="background:var(--green);color:#0d0d0f;">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L2 4.5h3V1h2v3.5h3L6 8.5zm-4 2v1h8v-1H2z"/></svg>
+      Download PDF
+    </button>
+  </div>
+
+  <div class="dash-body">
+    <!-- SECTION 1: PORTFOLIO OVERVIEW -->
+    <div class="section-label">Portfolio Overview</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- TICKER -->
+    <div class="ticker-wrap"><div class="ticker-inner" id="ticker-inner"></div></div>
+
+    <!-- SECTION 2: STOCK INTELLIGENCE -->
+    <div class="section-label">Stock Intelligence</div>
+    <div class="stock-intel-grid" id="stock-intel-grid"></div>
+
+    <!-- SECTION 3: GENERAL INSIGHTS (idle, review later) -->
+    <div class="insights-grid" id="insights-grid" style="display:none"></div>
+
+    <!-- SECTION 3: TRADE BREAKDOWN -->
+    <div class="section-label">Trade Breakdown</div>
+
+    <!-- ROW 1: Portfolio Curve + Monthly -->
+    <div class="section-grid">
+      <div class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-header">
+          <span class="panel-title">Portfolio Value Curve</span>
+          <span class="panel-hint" data-tip="Cumulative realised P&L over time, built from every completed sell. Each dot is a sell event. The line rising means you were ahead; falling means a loss was locked in. Does not include open positions.">?</span>
+          <span class="panel-badge" id="pv-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div id="pv-chart" style="width:100%;height:220px;position:relative;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 1b: Monthly P&L -->
+    <div class="section-grid">
+      <div class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-header">
+          <span class="panel-title">Monthly Realised P&amp;L</span>
+          <span class="panel-hint" data-tip="Profit or loss realised each calendar month from completed sell trades. Green bars = profitable month, red = took a loss. Does not include open/unsold positions.">?</span>
+        </div>
+        <div class="panel-body">
+          <div id="monthly-pnl-chart" style="width:100%;height:200px;position:relative;"></div>
+        </div>
+      </div>
+    </div>
+    <!-- SECTION 4: TRADE LOG -->
+    <div class="section-label">Trade Log</div>
+
+    <div class="panel section-full">
+      <div class="panel-header">
+        <span class="panel-title">Trade Log</span>
+        <span class="panel-hint" data-tip="All your trades grouped by stock. Click any row to expand and see the individual buy/sell entries — date, time, quantity, price, and value.">?</span>
+        <span class="panel-badge" id="trade-count-badge"></span>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <div id="trade-accordion"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CSV PARSING ───────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,'').toLowerCase().replace(/\s+/g,'_'));
+  return lines.slice(1).map(line => {
+    const vals = line.match(/(".*?"|[^,]+)(?=,|$)/g) || line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = (vals[i] || '').trim().replace(/^"|"$/g, '');
+    });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+// Normalize Zerodha column names (they vary slightly between exports)
+function normalizeRow(row) {
+  const keyMap = {
+    symbol:     ['symbol','trading_symbol','scrip_name','instrument'],
+    trade_type: ['trade_type','trade type','transaction_type','buy/sell','type','side'],
+    quantity:   ['quantity','qty','shares'],
+    price:      ['price','trade_price','avg._price','avg_price','rate'],
+    trade_date: ['order_execution_time','order execution time','time','trade_date','trade date','date'],
+    order_id:   ['order_id','order id','trade_id','trade id','id'],
+    exchange:   ['exchange','market']
+  };
+  const out = {};
+  for (const [key, aliases] of Object.entries(keyMap)) {
+    for (const a of aliases) {
+      if (row[a] !== undefined) { out[key] = row[a]; break; }
+    }
+    if (!out[key]) out[key] = '';
+  }
+  return out;
+}
+
+// ─── SAMPLE DATA ──────────────────────────────────────────
+function toYMDT(d) {
+  // Random market hour between 9:15 and 15:25
+  const hr  = 9 + Math.floor(Math.random() * 6);
+  const min = hr === 9 ? 15 + Math.floor(Math.random() * 45)
+            : hr === 15 ? Math.floor(Math.random() * 25)
+            : Math.floor(Math.random() * 60);
+  const sec = Math.floor(Math.random() * 60);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.toISOString().slice(0,10)} ${pad(hr)}:${pad(min)}:${pad(sec)}`;
+}
+
+function generateSampleData() {
+  const symbols = ['RELIANCE','TCS','INFY','HDFCBANK','WIPRO','SBIN','BAJFINANCE','TATAMOTORS','ICICIBANK','AXISBANK'];
+  const rows = [];
+  const now = new Date();
+
+  symbols.forEach((sym, si) => {
+    const basePrices = [2450, 3800, 1520, 1680, 420, 780, 6800, 920, 1040, 1120];
+    let basePrice = basePrices[si];
+    const numRounds = 2 + Math.floor(Math.random() * 4);
+    for (let r = 0; r < numRounds; r++) {
+      const buyDate = new Date(now);
+      buyDate.setDate(buyDate.getDate() - Math.floor(Math.random() * 240 + 30));
+      const qty = (Math.floor(Math.random() * 8 + 1)) * 5;
+      const buyPrice = (basePrice * (0.9 + Math.random() * 0.2)).toFixed(2);
+      rows.push({ symbol: sym, trade_type: 'BUY', quantity: qty, price: buyPrice, trade_date: toYMDT(buyDate), order_id: 'ORD'+Math.floor(Math.random()*1e8), exchange: 'NSE' });
+
+      if (Math.random() > 0.3) {
+        const sellDate = new Date(buyDate);
+        sellDate.setDate(sellDate.getDate() + Math.floor(Math.random() * 60 + 5));
+        if (sellDate > now) sellDate.setTime(now.getTime() - 86400000);
+        const drift = (Math.random() - 0.35) * 0.3;
+        const sellPrice = (parseFloat(buyPrice) * (1 + drift)).toFixed(2);
+        rows.push({ symbol: sym, trade_type: 'SELL', quantity: qty, price: sellPrice, trade_date: toYMDT(sellDate), order_id: 'ORD'+Math.floor(Math.random()*1e8), exchange: 'NSE' });
+      }
+      basePrice = parseFloat(basePrice) * (1 + (Math.random()-0.4)*0.1);
+    }
+  });
+
+  return rows.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
+}
+
+// ─── DATE PARSER (handles YYYY-MM-DD and fallbacks) ───────
+function parseDate(str) {
+  if (!str) return null;
+  str = str.trim();
+  // YYYY-MM-DD or YYYY-MM-DD HH:MM:SS (Zerodha standard)
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const d = new Date(str.slice(0, 10));
+    return isNaN(d) ? null : d;
+  }
+  // DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
+    const [d, m, y] = str.split('/');
+    const dt = new Date(`${y}-${m}-${d}`);
+    return isNaN(dt) ? null : dt;
+  }
+  // DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}/.test(str)) {
+    const [d, m, y] = str.split('-');
+    const dt = new Date(`${y}-${m}-${d}`);
+    return isNaN(dt) ? null : dt;
+  }
+  // Fallback: let JS try
+  const fallback = new Date(str);
+  return isNaN(fallback) ? null : fallback;
+}
+
+// ─── XIRR (Newton-Raphson) ─────────────────────────────────
+// cashflows = [{amount, date}] — negatives = cash out, positives = cash in
+function calcXIRR(cashflows, guess = 0.1) {
+  if (cashflows.length < 2) return null;
+  if (!cashflows.some(c => c.amount < 0)) return null;
+  if (!cashflows.some(c => c.amount > 0)) return null;
+  const t0 = cashflows[0].date.getTime();
+  const years = cashflows.map(c => (c.date.getTime() - t0) / (365.25 * 24 * 3600 * 1000));
+  let rate = guess;
+  for (let i = 0; i < 200; i++) {
+    let f = 0, df = 0;
+    for (let j = 0; j < cashflows.length; j++) {
+      const base = Math.pow(1 + rate, years[j]);
+      f  += cashflows[j].amount / base;
+      df -= years[j] * cashflows[j].amount / (base * (1 + rate));
+    }
+    if (Math.abs(df) < 1e-12) return null;
+    const next = rate - f / df;
+    if (Math.abs(next - rate) < 1e-8) return isFinite(next) ? next : null;
+    rate = next;
+    if (!isFinite(rate) || rate < -0.999) return null;
+  }
+  return null; // didn't converge
+}
+
+// ─── FIFO P&L + REALISED XIRR ─────────────────────────────
+function calcPnL(rows) {
+  // Sort chronologically — critical for FIFO correctness
+  const sorted = [...rows].sort((a, b) => {
+    const da = parseDate(a.trade_date), db = parseDate(b.trade_date);
+    return (da || 0) - (db || 0);
+  });
+
+  const buyQueues = {};       // symbol -> [{qty, price, date, lastPrice}]
+  const realisedCashflows = []; // only matched buy→sell pairs, for XIRR
+  let realised = 0;
+  let totalInvested = 0;
+  let openPositionCost = 0;
+  let openPositionLastValue = 0; // proxy: open qty × last traded price in CSV
+
+  // Track last seen price per symbol for unrealised proxy
+  const lastPrice = {};
+
+  sorted.forEach(r => {
+    const sym = r.symbol;
+    const qty = parseFloat(r.quantity) || 0;
+    const price = parseFloat(r.price) || 0;
+    const date = parseDate(r.trade_date);
+    const isBuy = r.trade_type.toUpperCase().includes('BUY');
+    if (!buyQueues[sym]) buyQueues[sym] = [];
+    lastPrice[sym] = price; // always update
+
+    if (isBuy) {
+      buyQueues[sym].push({ qty, price, date });
+      totalInvested += qty * price;
+      // Cashflow: money leaves wallet on buy date
+      if (date) realisedCashflows.push({ amount: -(qty * price), date, sym, paired: false });
+    } else {
+      // FIFO match — each matched lot generates a sell cashflow
+      let remainQty = qty;
+      let sellProceeds = qty * price; // total sell cash in for this trade
+
+      while (remainQty > 0 && buyQueues[sym].length > 0) {
+        const lot = buyQueues[sym][0];
+        const matched = Math.min(remainQty, lot.qty);
+        realised += matched * (price - lot.price);
+        remainQty -= matched;
+        lot.qty -= matched;
+        if (lot.qty <= 0) buyQueues[sym].shift();
+      }
+      // Mark the corresponding buy cashflows as paired (they contributed to a sell)
+      // For XIRR: add sell inflow on sell date
+      if (date) realisedCashflows.push({ amount: sellProceeds, date, isPaired: true });
+    }
+  });
+
+  // Open positions — cost basis and proxy value
+  Object.entries(buyQueues).forEach(([sym, queue]) => {
+    queue.forEach(lot => {
+      openPositionCost += lot.qty * lot.price;
+      openPositionLastValue += lot.qty * (lastPrice[sym] || lot.price);
+    });
+  });
+
+  const unrealised = openPositionLastValue - openPositionCost;
+
+  // Realised XIRR: only use cashflows from matched trades.
+  // Filter: keep all buy outflows that have at least one corresponding sell,
+  // plus all sell inflows. Unpaired buys (open positions) are excluded.
+  // Simpler & correct: just use all buy outflows + all sell inflows.
+  // The "realised" portion is implicit in the sell proceeds exceeding buy cost.
+  const xirrFlows = realisedCashflows.filter(c => c.amount < 0 || c.isPaired);
+  const xirr = calcXIRR(xirrFlows);
+  const realisedPct = totalInvested > 0 ? (realised / totalInvested) * 100 : 0;
+
+  return { realised, totalInvested, openPositionCost, openPositionLastValue, unrealised, xirr, realisedPct };
+}
+
+// ─── RENDERING ────────────────────────────────────────────
+function renderDashboard(rawRows, filename) {
+  const rows = rawRows.map(normalizeRow).filter(r => r.symbol);
+  if (!rows.length) { alert('Could not parse file. No recognisable trade data found.\n\nMake sure it\'s a Zerodha Kite tradebook export (CSV or XLSX).'); return; }
+
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('file-badge').textContent = filename;
+
+  const totalTrades = rows.length;
+  const buys = rows.filter(r => r.trade_type.toUpperCase().includes('BUY'));
+  const sells = rows.filter(r => r.trade_type.toUpperCase().includes('SELL'));
+  const buyValue = buys.reduce((s,r) => s + (parseFloat(r.price)||0)*(parseFloat(r.quantity)||0), 0);
+  const sellValue = sells.reduce((s,r) => s + (parseFloat(r.price)||0)*(parseFloat(r.quantity)||0), 0);
+  const totalValue = buyValue + sellValue;
+  const uniqueSymbols = [...new Set(rows.map(r => r.symbol))].length;
+
+  // ─── DURATION of dataset ───────────────────────────────
+  const allDates = rows.map(r => parseDate(r.trade_date)).filter(Boolean).sort((a,b) => a-b);
+  const firstDate = allDates[0];
+  const lastDate = allDates[allDates.length - 1];
+  const durationDays = firstDate && lastDate ? Math.round((lastDate - firstDate) / (1000*60*60*24)) : 0;
+  const durationMonths = Math.floor(durationDays / 30);
+  const durationRemainder = durationDays % 30;
+  const durationLabel = durationDays === 0 ? '—'
+    : durationMonths > 0 ? `${durationMonths}m ${durationRemainder}d`
+    : `${durationDays}d`;
+  const fmt = d => d ? d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  // ─── LONGEST HELD symbol (buy date to sell date, FIFO) ─
+  let longestHeld = { symbol: '—', days: 0 };
+  const holdCalc = {};
+  [...rows].sort((a,b)=>(parseDate(a.trade_date)||0)-(parseDate(b.trade_date)||0)).forEach(r => {
+    const sym = r.symbol;
+    const d = parseDate(r.trade_date);
+    const qty = parseFloat(r.quantity)||0;
+    const isBuy = r.trade_type.toUpperCase().includes('BUY');
+    if (!holdCalc[sym]) holdCalc[sym] = [];
+    if (isBuy) {
+      holdCalc[sym].push({ date: d, qty });
+    } else {
+      let rem = qty;
+      while (rem > 0 && holdCalc[sym].length > 0) {
+        const lot = holdCalc[sym][0];
+        const matched = Math.min(rem, lot.qty);
+        if (lot.date && d) {
+          const held = Math.round((d - lot.date) / (1000*60*60*24));
+          if (held > longestHeld.days) longestHeld = { symbol: sym, days: held, from: lot.date, to: d };
+        }
+        rem -= matched;
+        lot.qty -= matched;
+        if (lot.qty <= 0) holdCalc[sym].shift();
+      }
+    }
+  });
+  const longestDays = longestHeld.days;
+  const longestLabel = longestDays > 365
+    ? `${(longestDays/365).toFixed(1)}y`
+    : longestDays > 30 ? `${Math.floor(longestDays/30)}m ${longestDays%30}d`
+    : `${longestDays}d`;
+
+  // P&L + XIRR
+  const { realised, totalInvested, openPositionCost, openPositionLastValue, unrealised, xirr, realisedPct } = calcPnL(rows);
+  const pnlPositive = realised >= 0;
+  const unrealisedPositive = unrealised >= 0;
+  const xirrPct = xirr !== null ? (xirr * 100) : null;
+  const xirrPositive = xirrPct !== null && xirrPct >= 0;
+
+  const kpiGrid = document.getElementById('kpi-grid');
+  kpiGrid.innerHTML = `
+    <!-- 1. Data Period -->
+    <div class="kpi-card" style="animation-delay:0.05s">
+      <div class="kpi-label">Data Period</div>
+      <div class="kpi-value" style="font-size:22px">${durationLabel}</div>
+      <div class="kpi-split">
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">From</div>
+          <div class="kpi-split-val" style="font-size:13px;color:var(--text);font-family:'JetBrains Mono',monospace;line-height:1.3">${fmt(firstDate)}</div>
+        </div>
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">To</div>
+          <div class="kpi-split-val" style="font-size:13px;color:var(--text);font-family:'JetBrains Mono',monospace;line-height:1.3">${fmt(lastDate)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Instruments -->
+    <div class="kpi-card" style="animation-delay:0.1s">
+      <div class="kpi-label">Instruments</div>
+      <div class="kpi-value">${uniqueSymbols}</div>
+      <div class="kpi-sub">unique symbols traded</div>
+    </div>
+
+    <!-- 3. Total Trades -->
+    <div class="kpi-card" style="animation-delay:0.15s">
+      <div class="kpi-label">Total Trades</div>
+      <div class="kpi-value">${totalTrades}</div>
+      <div class="kpi-split">
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Buys</div>
+          <div class="kpi-split-val green">${buys.length}</div>
+        </div>
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Sells</div>
+          <div class="kpi-split-val red">${sells.length}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Gross Turnover -->
+    <div class="kpi-card" style="animation-delay:0.2s">
+      <div class="kpi-label">Gross Turnover</div>
+      <div class="kpi-value">₹${formatNum(totalValue)}</div>
+      <div class="kpi-split">
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Buy Value</div>
+          <div class="kpi-split-val green">₹${formatNum(buyValue)}</div>
+        </div>
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Sell Value</div>
+          <div class="kpi-split-val red">₹${formatNum(sellValue)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Net Realised P&L -->
+    <div class="kpi-card ${pnlPositive ? 'green' : 'red'}" style="animation-delay:0.25s">
+      <div class="kpi-label">Net Realised P&amp;L</div>
+      <div class="kpi-value ${pnlPositive ? 'green' : 'red'}">${pnlPositive ? '+' : '-'}₹${formatNum(Math.abs(realised))}</div>
+      <div class="kpi-split">
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Return %</div>
+          <div class="kpi-split-val ${pnlPositive ? 'green' : 'red'}" style="font-size:18px">${pnlPositive ? '+' : ''}${realisedPct.toFixed(2)}%</div>
+        </div>
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Invested</div>
+          <div class="kpi-split-val" style="font-size:14px;color:var(--text);font-family:'JetBrains Mono',monospace">₹${formatNum(totalInvested)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Realised XIRR -->
+    <div class="kpi-card ${xirrPct === null ? '' : xirrPositive ? 'green' : 'red'}" style="animation-delay:0.3s">
+      <div class="kpi-label">Realised XIRR</div>
+      <div class="kpi-value ${xirrPct === null ? '' : xirrPositive ? 'green' : 'red'}">
+        ${xirrPct === null ? '—' : (xirrPositive ? '+' : '') + xirrPct.toFixed(2) + '%'}
+      </div>
+      <div class="xirr-note">${xirrPct === null ? 'Needs at least one matched buy→sell pair' : 'Annualised · FIFO matched · closed trades only'}</div>
+    </div>
+
+    <!-- 7. Unrealised P&L -->
+    <div class="kpi-card ${unrealisedPositive ? 'green' : 'red'}" style="animation-delay:0.35s">
+      <div class="kpi-label">Unrealised P&amp;L ⚠</div>
+      <div class="kpi-value ${unrealisedPositive ? 'green' : 'red'}">${unrealisedPositive ? '+' : '-'}₹${formatNum(Math.abs(unrealised))}</div>
+      <div class="kpi-split">
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Invested Value</div>
+          <div class="kpi-split-val" style="font-size:14px;color:var(--text);font-family:'JetBrains Mono',monospace">₹${formatNum(openPositionCost)}</div>
+        </div>
+        <div class="kpi-split-item">
+          <div class="kpi-split-label">Est. Value</div>
+          <div class="kpi-split-val" style="font-size:14px;color:var(--text);font-family:'JetBrains Mono',monospace">₹${formatNum(openPositionLastValue)}</div>
+        </div>
+      </div>
+      <div class="kpi-note" style="margin-top:8px">Last traded price in CSV — not live</div>
+    </div>
+  `;
+
+  // Ticker
+  const tickerItems = [...new Set(rows.map(r => r.symbol))].slice(0, 12).map(sym => {
+    const symRows = rows.filter(r => r.symbol === sym);
+    const prices = symRows.map(r => parseFloat(r.price)).filter(Boolean);
+    const last = prices[prices.length - 1] || 0;
+    const first = prices[0] || last;
+    const chg = last - first;
+    const cls = chg >= 0 ? 'up' : 'dn';
+    return `<span class="ticker-item">${sym} <span class="${cls}">${chg >= 0 ? '▲' : '▼'}${Math.abs(chg).toFixed(1)}</span></span>`;
+  }).join('');
+  const tickerInner = document.getElementById('ticker-inner');
+  tickerInner.innerHTML = tickerItems + tickerItems; // duplicate for seamless loop
+
+  // ─── STOCK INTELLIGENCE ───────────────────────────────────
+  const symStats = {};
+  const symQueues = {};
+  const sortedForIntel = [...rows].sort((a,b) => (parseDate(a.trade_date)||0) - (parseDate(b.trade_date)||0));
+
+  sortedForIntel.forEach(r => {
+    const sym = r.symbol;
+    const qty  = parseFloat(r.quantity) || 0;
+    const price = parseFloat(r.price) || 0;
+    const val  = qty * price;
+    const date = parseDate(r.trade_date);
+    const isBuy = r.trade_type.toUpperCase().includes('BUY');
+    if (!symStats[sym])  symStats[sym]  = { trades: 0, totalValue: 0, invested: 0, realised: 0, maxHoldDays: 0 };
+    if (!symQueues[sym]) symQueues[sym] = [];
+    symStats[sym].trades++;
+    symStats[sym].totalValue += val;
+    if (isBuy) {
+      symStats[sym].invested += val;
+      symQueues[sym].push({ qty, price, date });
+    } else {
+      let rem = qty;
+      while (rem > 0 && symQueues[sym].length > 0) {
+        const lot = symQueues[sym][0];
+        const matched = Math.min(rem, lot.qty);
+        symStats[sym].realised += matched * (price - lot.price);
+        if (lot.date && date) {
+          const held = Math.round((date - lot.date) / (1000*60*60*24));
+          if (held > symStats[sym].maxHoldDays) symStats[sym].maxHoldDays = held;
+        }
+        rem -= matched;
+        lot.qty -= matched;
+        if (lot.qty <= 0) symQueues[sym].shift();
+      }
+    }
+  });
+  Object.values(symStats).forEach(s => {
+    s.realisedPct = s.invested > 0 ? (s.realised / s.invested) * 100 : null;
+  });
+
+  const symEntries = Object.entries(symStats);
+  const mostTraded   = [...symEntries].sort((a,b) => b[1].trades - a[1].trades)[0];
+  const biggest      = [...symEntries].sort((a,b) => b[1].totalValue - a[1].totalValue)[0];
+  const withPct      = symEntries.filter(([,s]) => s.realisedPct !== null && s.invested > 0);
+  const mostProfPct  = [...withPct].sort((a,b) => b[1].realisedPct - a[1].realisedPct)[0];
+  const leastProfPct = [...withPct].sort((a,b) => a[1].realisedPct - b[1].realisedPct)[0];
+  const withVal      = symEntries.filter(([,s]) => s.invested > 0);
+  const mostProfVal  = [...withVal].sort((a,b) => b[1].realised - a[1].realised)[0];
+  const leastProfVal = [...withVal].sort((a,b) => a[1].realised - b[1].realised)[0];
+
+  // ─── TEMPORAL ANALYSIS ────────────────────────────────────
+  const dayCount = {}, hourCount = {}, dateBandCount = {}, monthTradeCount = {}, monthValueCount = {};
+  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  const getBand = d => {
+    if (d <= 5)  return '1–5';
+    if (d <= 10) return '6–10';
+    if (d <= 15) return '11–15';
+    if (d <= 20) return '16–20';
+    if (d <= 25) return '21–25';
+    return '26–31';
+  };
+
+  rows.forEach(r => {
+    // Try to get a full timestamp — order_execution_time is mapped to trade_date during normalisation
+    // Zerodha format: "2024-03-15 10:23:45" or "2024-03-15T10:23:45"
+    const raw = r.trade_date || '';
+    const d = parseDate(raw);
+    if (!d) return;
+
+    // Day of week
+    const dayName = DAYS[d.getDay()];
+    dayCount[dayName] = (dayCount[dayName] || 0) + 1;
+
+    // Hour bucket — extract from the raw string directly so we don't lose time via parseDate
+    const timeMatch = raw.match(/[T ](\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      const hr = parseInt(timeMatch[1]);
+      if (hr >= 9 && hr <= 15) {
+        const bucket = `${hr}–${hr+1}`;
+        hourCount[bucket] = (hourCount[bucket] || 0) + 1;
+      }
+    }
+
+    // Date band (day-of-month)
+    const dom = d.getDate();
+    const band = getBand(dom);
+    dateBandCount[band] = (dateBandCount[band] || 0) + 1;
+
+    // Month — trades + value
+    const monthKey = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const val = (parseFloat(r.price)||0) * (parseFloat(r.quantity)||0);
+    if (!monthTradeCount[monthKey]) monthTradeCount[monthKey] = { trades: 0, value: 0 };
+    monthTradeCount[monthKey].trades++;
+    monthTradeCount[monthKey].value += val;
+  });
+
+  const topDay    = Object.entries(dayCount).sort((a,b) => b[1]-a[1])[0];
+  const topHour   = Object.entries(hourCount).sort((a,b) => b[1]-a[1])[0];
+  const topBand   = Object.entries(dateBandCount).sort((a,b) => b[1]-a[1])[0];
+  const mostActiveMonth  = Object.entries(monthTradeCount).sort((a,b) => b[1].trades - a[1].trades)[0];
+  const highestValMonth  = Object.entries(monthTradeCount).sort((a,b) => b[1].value  - a[1].value)[0];
+
+  // ─── BUILD INTEL CARDS ────────────────────────────────────
+  // Helper: consistent split row
+  const splitRow = (label1, val1, label2, val2) => `
+    <div class="kpi-split" style="margin-top:10px">
+      <div class="kpi-split-item">
+        <div class="kpi-split-label">${label1}</div>
+        <div class="kpi-split-val" style="font-size:14px;font-family:'JetBrains Mono',monospace;color:var(--text)">${val1}</div>
+      </div>
+      <div class="kpi-split-item">
+        <div class="kpi-split-label">${label2}</div>
+        <div class="kpi-split-val" style="font-size:14px;font-family:'JetBrains Mono',monospace;color:var(--text)">${val2}</div>
+      </div>
+    </div>`;
+
+  // Row 1: stock performance cards
+  const intelRow1 = [
+    {
+      role: 'Most Traded Stock',
+      symbol: mostTraded?.[0] || '—', cls: 'gold',
+      detail: splitRow('Trade Count', mostTraded?.[1].trades || 0, 'Total Value', `₹${formatNum(mostTraded?.[1].totalValue || 0)}`)
+    },
+    {
+      role: 'Biggest by Value',
+      symbol: biggest?.[0] || '—', cls: 'gold',
+      detail: splitRow('Total Value', `₹${formatNum(biggest?.[1].totalValue || 0)}`, 'Trade Count', biggest?.[1].trades || 0)
+    },
+    {
+      role: 'Most Profitable %',
+      symbol: mostProfPct?.[0] || '—', cls: 'green',
+      detail: mostProfPct
+        ? splitRow('Net Return', `${mostProfPct[1].realisedPct > 0 ? '+' : ''}${mostProfPct[1].realisedPct.toFixed(2)}%`, 'Invested', `₹${formatNum(mostProfPct[1].invested)}`)
+        : '<div class="intel-detail" style="margin-top:8px">No closed trades</div>'
+    },
+    {
+      role: 'Least Profitable %',
+      symbol: leastProfPct?.[0] || '—', cls: leastProfPct?.[1]?.realisedPct < 0 ? 'red' : '',
+      detail: leastProfPct
+        ? splitRow('Net Return', `${leastProfPct[1].realisedPct > 0 ? '+' : ''}${leastProfPct[1].realisedPct.toFixed(2)}%`, 'Invested', `₹${formatNum(leastProfPct[1].invested)}`)
+        : '<div class="intel-detail" style="margin-top:8px">No closed trades</div>'
+    },
+    {
+      role: 'Highest Gain ₹',
+      symbol: mostProfVal?.[0] || '—', cls: 'green',
+      detail: mostProfVal
+        ? splitRow('Net Gain', `+₹${formatNum(Math.abs(mostProfVal[1].realised))}`, 'Invested', `₹${formatNum(mostProfVal[1].invested)}`)
+        : '<div class="intel-detail" style="margin-top:8px">No closed trades</div>'
+    },
+    {
+      role: 'Highest Loss ₹',
+      symbol: leastProfVal?.[0] || '—', cls: leastProfVal?.[1]?.realised < 0 ? 'red' : '',
+      detail: leastProfVal
+        ? splitRow('Net Loss', `${leastProfVal[1].realised < 0 ? '-' : '+'}₹${formatNum(Math.abs(leastProfVal[1].realised))}`, 'Invested', `₹${formatNum(leastProfVal[1].invested)}`)
+        : '<div class="intel-detail" style="margin-top:8px">No closed trades</div>'
+    },
+  ];
+
+  // Row 2: temporal + hold patterns
+  const intelRow2 = [
+    {
+      role: 'Longest Held',
+      symbol: longestHeld.symbol, cls: '',
+      detail: longestHeld.days > 0
+        ? splitRow('Duration', longestLabel, 'Period', `${fmt(longestHeld.from)} → ${fmt(longestHeld.to)}`)
+        : '<div class="intel-detail" style="margin-top:8px">No matched buy→sell pair</div>'
+    },
+    {
+      role: 'Most Traded Day',
+      symbol: topDay?.[0] || '—', cls: 'gold',
+      detail: splitRow('Trade Count', topDay?.[1] || 0, 'of Total', `${totalTrades ? Math.round((topDay?.[1]||0)/totalTrades*100) : 0}%`)
+    },
+    {
+      role: 'Most Active Hour',
+      symbol: (() => {
+        if (!topHour) return '—';
+        const hr = parseInt(topHour[0].split('–')[0]);
+        const start12 = hr > 12 ? hr - 12 : hr;
+        const end = hr + 1;
+        const end12 = end > 12 ? end - 12 : end;
+        const suffix = hr >= 12 ? 'PM' : 'AM';
+        const endSuffix = end >= 12 ? 'PM' : 'AM';
+        return suffix === endSuffix ? `${start12}–${end12} ${suffix}` : `${start12} ${suffix}–${end12} ${endSuffix}`;
+      })(), cls: 'gold',
+      detail: topHour
+        ? splitRow('Trade Count', topHour[1], 'of Total', `${totalTrades ? Math.round(topHour[1]/totalTrades*100) : 0}%`)
+        : '<div class="intel-detail" style="margin-top:8px">No time data — needs <em>order_execution_time</em> column</div>'
+    },
+    {
+      role: 'Most Traded Date Band',
+      symbol: topBand?.[0] || '—', cls: 'gold',
+      detail: splitRow('Trade Count', topBand?.[1] || 0, 'of Total', `${totalTrades ? Math.round((topBand?.[1]||0)/totalTrades*100) : 0}%`)
+    },
+    {
+      role: 'Most Active Month',
+      symbol: mostActiveMonth?.[0]?.split(' ')[0] || '—', cls: 'gold',
+      detail: mostActiveMonth
+        ? splitRow('Trade Count', mostActiveMonth[1].trades, 'Year', mostActiveMonth[0]?.split(' ')[1] || '')
+        : '<div class="intel-detail" style="margin-top:8px">No data</div>'
+    },
+    {
+      role: 'Highest Value Month',
+      symbol: highestValMonth?.[0]?.split(' ')[0] || '—', cls: 'gold',
+      detail: highestValMonth
+        ? splitRow('Total Value', `₹${formatNum(highestValMonth[1].value)}`, 'Year', highestValMonth[0]?.split(' ')[1] || '')
+        : '<div class="intel-detail" style="margin-top:8px">No data</div>'
+    },
+  ];
+
+  const renderIntelCards = (arr, startIndex) => arr.map((c, i) =>
+    `<div class="intel-card" style="animation-delay:${0.05 + (startIndex+i)*0.05}s">
+      <div class="intel-role">${c.role}</div>
+      <div class="intel-symbol ${c.cls}">${c.symbol}</div>
+      ${c.detail}
+    </div>`
+  ).join('');
+
+  document.getElementById('stock-intel-grid').innerHTML =
+    `<div class="intel-sub-label">Performance</div>` +
+    renderIntelCards(intelRow1, 0) +
+    `<div class="intel-sub-label">Patterns &amp; Timing</div>` +
+    renderIntelCards(intelRow2, intelRow1.length);
+
+  // Old insights — kept idle (hidden), review later
+  const _idleTopSym = Object.entries(rows.reduce((a, r) => { a[r.symbol] = (a[r.symbol]||0)+1; return a; }, {}))
+    .sort((a,b)=>b[1]-a[1])[0];
+  const _idleTopDay = Object.entries(rows.reduce((a, r) => {
+    const d = r.trade_date ? new Date(r.trade_date).toLocaleDateString('en-US',{weekday:'long'}) : '?';
+    a[d] = (a[d]||0)+1; return a;
+  }, {})).sort((a,b)=>b[1]-a[1])[0];
+  const bigTrade = rows.reduce((max, r) => (parseFloat(r.price)*parseFloat(r.quantity)) > (parseFloat(max.price)*parseFloat(max.quantity)) ? r : max, rows[0]);
+  document.getElementById('insights-grid').innerHTML = [
+    { icon: '🏆', title: 'Most Traded', text: `<strong>${_idleTopSym?.[0]}</strong> was your most active instrument with ${_idleTopSym?.[1]} trades.` },
+    { icon: '📅', title: 'Busiest Day', text: `<strong>${_idleTopDay?.[0] || '—'}</strong> was your most active trading day.` },
+    { icon: '💸', title: 'Largest Trade', text: `Biggest trade was <strong>${bigTrade?.symbol}</strong> @ ₹${parseFloat(bigTrade?.price||0).toFixed(2)} × ${bigTrade?.quantity} shares.` },
+    { icon: '⚡', title: 'Activity', text: `Traded <strong>${uniqueSymbols} instruments</strong> with an average of <strong>${(totalTrades/Math.max(uniqueSymbols,1)).toFixed(1)} trades</strong> per instrument.` },
+  ].map(i => `<div class="insight-card"><span class="insight-icon">${i.icon}</span><div class="insight-title">${i.title}</div><div class="insight-text">${i.text}</div></div>`).join('');
+
+  // ─── PORTFOLIO VALUE CURVE ────────────────────────────────
+  // Cumulative realised P&L over time — each sell event adds/subtracts from a running total
+  // We walk trades chronologically, track FIFO cost, and record the curve point at each sell
+  const pvQueue = {};
+  const pvPoints = []; // { date, cumPnL }
+  let cumPnL = 0;
+
+  [...rows]
+    .sort((a,b) => (parseDate(a.trade_date)||0) - (parseDate(b.trade_date)||0))
+    .forEach(r => {
+      const sym = r.symbol;
+      const qty = parseFloat(r.quantity)||0;
+      const price = parseFloat(r.price)||0;
+      const date = parseDate(r.trade_date);
+      const isBuy = r.trade_type.toUpperCase().includes('BUY');
+      if (!pvQueue[sym]) pvQueue[sym] = [];
+      if (isBuy) {
+        pvQueue[sym].push({ qty, price });
+      } else {
+        let rem = qty;
+        while (rem > 0 && pvQueue[sym].length > 0) {
+          const lot = pvQueue[sym][0];
+          const matched = Math.min(rem, lot.qty);
+          cumPnL += matched * (price - lot.price);
+          rem -= matched;
+          lot.qty -= matched;
+          if (lot.qty <= 0) pvQueue[sym].shift();
+        }
+        if (date) pvPoints.push({ date, cumPnL });
+      }
+    });
+
+  // Add a zero origin point
+  if (pvPoints.length > 0) pvPoints.unshift({ date: firstDate || pvPoints[0].date, cumPnL: 0 });
+
+  const pvEl = document.getElementById('pv-chart');
+  if (pvPoints.length < 2) {
+    pvEl.innerHTML = '<div style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:12px;padding:20px">Not enough sell events to draw a curve.</div>';
+  } else {
+    const W = pvEl.offsetWidth || 800;
+    const H = 220;
+    const PAD = { top: 20, right: 20, bottom: 36, left: 70 };
+    const iW = W - PAD.left - PAD.right;
+    const iH = H - PAD.top - PAD.bottom;
+
+    const dates = pvPoints.map(p => p.date.getTime());
+    const vals  = pvPoints.map(p => p.cumPnL);
+    const minD = Math.min(...dates), maxD = Math.max(...dates);
+    const minV = Math.min(...vals, 0), maxV = Math.max(...vals, 0);
+    const rangeV = maxV - minV || 1;
+
+    const xScale = t => PAD.left + ((t - minD) / (maxD - minD || 1)) * iW;
+    const yScale = v => PAD.top + iH - ((v - minV) / rangeV) * iH;
+    const zeroY  = yScale(0);
+
+    // Build SMOOTH path using cubic bezier curves
+    const makeSmoothPath = (points) => {
+      if (points.length < 2) return '';
+      const coords = points.map(p => [xScale(p.date.getTime()), yScale(p.cumPnL)]);
+      let d = `M ${coords[0][0].toFixed(1)},${coords[0][1].toFixed(1)}`;
+      for (let i = 1; i < coords.length; i++) {
+        const prev = coords[i-1], curr = coords[i];
+        const cpx = (prev[0] + curr[0]) / 2;
+        d += ` C ${cpx.toFixed(1)},${prev[1].toFixed(1)} ${cpx.toFixed(1)},${curr[1].toFixed(1)} ${curr[0].toFixed(1)},${curr[1].toFixed(1)}`;
+      }
+      return d;
+    };
+    const linePath = makeSmoothPath(pvPoints);
+    // Smooth fill — close back to zero baseline
+    const fillPath = `${linePath} L ${xScale(dates[dates.length-1]).toFixed(1)},${zeroY.toFixed(1)} L ${xScale(dates[0]).toFixed(1)},${zeroY.toFixed(1)} Z`;
+
+    // Y-axis ticks (5)
+    const yTicks = Array.from({length:5}, (_,i) => minV + (rangeV/4)*i);
+
+    // X-axis ticks (up to 6 dates)
+    const xStep = Math.max(1, Math.floor(pvPoints.length / 5));
+    const xTickPts = pvPoints.filter((_,i) => i % xStep === 0 || i === pvPoints.length-1);
+
+    const finalVal = vals[vals.length-1];
+    const isPositive = finalVal >= 0;
+    const lineColor = isPositive ? 'var(--green)' : 'var(--red)';
+
+    document.getElementById('pv-badge').textContent = `${isPositive ? '+' : ''}₹${formatNum(finalVal)} net realised`;
+    document.getElementById('pv-badge').style.color = isPositive ? 'var(--green)' : 'var(--red)';
+
+    pvEl.innerHTML = `
+      <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="overflow:visible">
+        <defs>
+          <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="${lineColor}" stop-opacity="0.02"/>
+          </linearGradient>
+          <clipPath id="pvClip"><rect x="${PAD.left}" y="${PAD.top}" width="${iW}" height="${iH}"/></clipPath>
+        </defs>
+
+        <!-- Zero line -->
+        <line x1="${PAD.left}" y1="${zeroY.toFixed(1)}" x2="${PAD.left+iW}" y2="${zeroY.toFixed(1)}"
+          stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
+
+        <!-- Fill -->
+        <path d="${fillPath}" fill="url(#pvGrad)" clip-path="url(#pvClip)"/>
+
+        <!-- Line -->
+        <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="2"
+          stroke-linejoin="round" stroke-linecap="round" clip-path="url(#pvClip)"/>
+
+        <!-- Y axis -->
+        ${yTicks.map(v => `
+          <line x1="${PAD.left-4}" y1="${yScale(v).toFixed(1)}" x2="${PAD.left+iW}" y2="${yScale(v).toFixed(1)}"
+            stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>
+          <text x="${PAD.left-8}" y="${(yScale(v)+4).toFixed(1)}"
+            text-anchor="end" font-size="10" font-family="JetBrains Mono,monospace" fill="var(--muted)">
+            ${v >= 0 ? '+' : ''}${v >= 1000 || v <= -1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0)}
+          </text>`).join('')}
+
+        <!-- X axis ticks -->
+        ${xTickPts.map(p => `
+          <line x1="${xScale(p.date.getTime()).toFixed(1)}" y1="${PAD.top+iH}" x2="${xScale(p.date.getTime()).toFixed(1)}" y2="${(PAD.top+iH+4).toFixed(1)}"
+            stroke="var(--border)" stroke-width="1"/>
+          <text x="${xScale(p.date.getTime()).toFixed(1)}" y="${(PAD.top+iH+16).toFixed(1)}"
+            text-anchor="middle" font-size="9" font-family="JetBrains Mono,monospace" fill="var(--muted)">
+            ${p.date.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}
+          </text>`).join('')}
+
+        <!-- Data points (dots on sell events) -->
+        ${pvPoints.slice(1).map(p => `
+          <circle cx="${xScale(p.date.getTime()).toFixed(1)}" cy="${yScale(p.cumPnL).toFixed(1)}" r="3"
+            fill="${p.cumPnL >= 0 ? 'var(--green)' : 'var(--red)'}" opacity="0.8"/>`).join('')}
+      </svg>`;
+  }
+
+  // ─── MONTHLY P&L BARS ─────────────────────────────────────
+  // Group realised P&L by calendar month using the same FIFO queue already computed
+  // Re-run FIFO but bucket gains into months
+  const mPnlQueue = {};
+  const mPnlMap   = {}; // 'MMM YY' -> realised P&L
+  [...rows]
+    .sort((a,b) => (parseDate(a.trade_date)||0) - (parseDate(b.trade_date)||0))
+    .forEach(r => {
+      const sym   = r.symbol;
+      const qty   = parseFloat(r.quantity)||0;
+      const price = parseFloat(r.price)||0;
+      const date  = parseDate(r.trade_date);
+      const isBuy = r.trade_type.toUpperCase().includes('BUY');
+      if (!mPnlQueue[sym]) mPnlQueue[sym] = [];
+      if (isBuy) {
+        mPnlQueue[sym].push({ qty, price });
+      } else {
+        let rem = qty, gain = 0;
+        while (rem > 0 && mPnlQueue[sym].length > 0) {
+          const lot = mPnlQueue[sym][0];
+          const matched = Math.min(rem, lot.qty);
+          gain += matched * (price - lot.price);
+          rem  -= matched; lot.qty -= matched;
+          if (lot.qty <= 0) mPnlQueue[sym].shift();
+        }
+        if (date) {
+          const key = date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+          mPnlMap[key] = (mPnlMap[key] || 0) + gain;
+        }
+      }
+    });
+
+  const mPnlEl = document.getElementById('monthly-pnl-chart');
+  // Build complete month sequence from firstDate to lastDate — zero fill missing months
+  const allMonthKeys = [];
+  if (firstDate && lastDate) {
+    const cur = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+    const end = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+    while (cur <= end) {
+      allMonthKeys.push(cur.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }));
+      cur.setMonth(cur.getMonth() + 1);
+    }
+  } else {
+    allMonthKeys.push(...Object.keys(mPnlMap));
+  }
+  // Zero-fill months with no activity
+  allMonthKeys.forEach(k => { if (mPnlMap[k] === undefined) mPnlMap[k] = 0; });
+
+  if (allMonthKeys.length < 1) {
+    mPnlEl.innerHTML = '<div style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:12px;padding:20px">No monthly data.</div>';
+  } else {
+    const W2 = mPnlEl.offsetWidth || 800;
+    const H2 = 200;
+    const PAD2 = { top: 20, right: 20, bottom: 36, left: 70 };
+    const iW2  = W2 - PAD2.left - PAD2.right;
+    const iH2  = H2 - PAD2.top  - PAD2.bottom;
+    const mVals = allMonthKeys.map(k => mPnlMap[k]);
+    const maxAbs = Math.max(...mVals.map(Math.abs), 1);
+    const zeroY2  = PAD2.top + iH2 / 2;
+    const barW   = Math.max(4, Math.floor(iW2 / allMonthKeys.length) - 4);
+    const barX   = (i) => PAD2.left + (i + 0.5) * (iW2 / allMonthKeys.length) - barW / 2;
+    const yTicks2 = [-maxAbs, -maxAbs/2, 0, maxAbs/2, maxAbs];
+    const yScale2 = v => PAD2.top + iH2 * (1 - (v + maxAbs) / (2 * maxAbs));
+
+    mPnlEl.innerHTML = `
+      <svg width="100%" height="${H2}" viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none" style="overflow:visible">
+        <line x1="${PAD2.left}" y1="${zeroY2.toFixed(1)}" x2="${PAD2.left+iW2}" y2="${zeroY2.toFixed(1)}"
+          stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
+        ${yTicks2.map(v => `
+          <line x1="${PAD2.left-4}" y1="${yScale2(v).toFixed(1)}" x2="${PAD2.left+iW2}" y2="${yScale2(v).toFixed(1)}"
+            stroke="var(--border)" stroke-width="0.5" opacity="0.4"/>
+          <text x="${PAD2.left-8}" y="${(yScale2(v)+4).toFixed(1)}"
+            text-anchor="end" font-size="10" font-family="JetBrains Mono,monospace" fill="var(--muted)">
+            ${v === 0 ? '0' : (v > 0 ? '+' : '') + (Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0))}
+          </text>`).join('')}
+        ${allMonthKeys.map((k, i) => {
+          const v   = mPnlMap[k];
+          const col = v > 0 ? 'var(--green)' : v < 0 ? 'var(--red)' : 'var(--border)';
+          const bh  = Math.abs(yScale2(0) - yScale2(v));
+          const by  = v >= 0 ? yScale2(v) : zeroY2;
+          return `
+            <rect x="${barX(i).toFixed(1)}" y="${by.toFixed(1)}"
+              width="${barW}" height="${Math.max(2, bh).toFixed(1)}"
+              fill="${col}" opacity="${v === 0 ? '0.2' : '0.8'}" rx="2"/>
+            <text x="${(barX(i) + barW/2).toFixed(1)}" y="${(H2 - PAD2.bottom + 14).toFixed(1)}"
+              text-anchor="middle" font-size="9" font-family="JetBrains Mono,monospace" fill="var(--muted)">
+              ${k}
+            </text>`;
+        }).join('')}
+      </svg>`;
+  }
+
+  // ─── TRADE LOG ACCORDION ──────────────────────────────────
+  // Group all trades by symbol, sorted by most trades first
+  const symGroups = {};
+  rows.forEach(r => {
+    if (!symGroups[r.symbol]) symGroups[r.symbol] = [];
+    symGroups[r.symbol].push(r);
+  });
+  const sortedSyms = Object.entries(symGroups).sort((a,b) => b[1].length - a[1].length);
+
+  document.getElementById('trade-count-badge').textContent = `${totalTrades} trades · ${sortedSyms.length} stocks`;
+
+  document.getElementById('trade-accordion').innerHTML = sortedSyms.map(([sym, trades], idx) => {
+    const buyCnt  = trades.filter(t => t.trade_type.toUpperCase().includes('BUY')).length;
+    const sellCnt = trades.length - buyCnt;
+    const totalVal = trades.reduce((s,t) => s + (parseFloat(t.price)||0)*(parseFloat(t.quantity)||0), 0);
+
+    // Sort trades chronologically within each symbol
+    const sorted = [...trades].sort((a,b) => (parseDate(a.trade_date)||0) - (parseDate(b.trade_date)||0));
+
+    const rows_html = sorted.map(t => {
+      const isBuy = t.trade_type.toUpperCase().includes('BUY');
+      const val   = (parseFloat(t.price)||0) * (parseFloat(t.quantity)||0);
+      // Format datetime nicely: date + time separately
+      const raw   = t.trade_date || '';
+      const dateStr = raw.slice(0,10);
+      const timeMatch = raw.match(/[T ](\d{1,2}:\d{2}:\d{2})/);
+      const timeStr = timeMatch ? (() => {
+        const [h,m] = timeMatch[1].split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12  = h > 12 ? h - 12 : h === 0 ? 12 : h;
+        return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+      })() : '';
+
+      const exchColor = (t.exchange||'NSE').toUpperCase().includes('BSE') ? '#60a5fa' : 'var(--green)';
+      return `<tr class="acc-row">
+        <td class="mono acc-date"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Trade Date</span>${dateStr}</td>
+        <td class="mono acc-time"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Exec. Time</span>${timeStr || '—'}</td>
+        <td><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:3px">Action</span><span class="${isBuy?'badge-buy':'badge-sell'}">${isBuy?'BUY':'SELL'}</span></td>
+        <td class="mono acc-qty"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Quantity</span>${Math.round(parseFloat(t.quantity)||0)} shares</td>
+        <td class="mono acc-price"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Price / Share</span>₹${parseFloat(t.price||0).toFixed(2)}</td>
+        <td class="mono acc-val" style="color:var(--gold)"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Trade Value</span>₹${formatNum(val)}</td>
+        <td class="mono"><span style="color:var(--muted);font-size:10px;display:block;margin-bottom:1px">Exchange</span><span style="color:${exchColor};font-weight:500">${(t.exchange||'NSE').toUpperCase().includes('BSE')?'BSE':'NSE'}</span></td>
+      </tr>`;
+    }).join('');
+
+    return `
+    <div class="acc-item" id="acc-${idx}">
+      <div class="acc-header" onclick="toggleAcc(${idx})">
+        <div class="acc-chevron" id="chev-${idx}">›</div>
+        <div class="acc-sym">${sym}</div>
+        <div class="acc-meta">
+          <span class="acc-stat green">${buyCnt} buys</span>
+          <span class="acc-stat red">${sellCnt} sells</span>
+          <span class="acc-stat muted">${trades.length} total trades</span>
+          <span class="acc-stat gold">₹${formatNum(totalVal)} traded value</span>
+        </div>
+      </div>
+      <div class="acc-body" id="body-${idx}" style="display:none;">
+        <table class="acc-table">
+          <thead>
+            <tr>
+              <th>Trade Date</th><th>Exec. Time</th><th>Action</th><th>Quantity</th><th>Price / Share</th><th>Trade Value</th><th>Exchange</th>
+            </tr>
+          </thead>
+          <tbody>${rows_html}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatNum(n) {
+  if (n >= 1e7) return (n/1e7).toFixed(2) + 'Cr';
+  if (n >= 1e5) return (n/1e5).toFixed(2) + 'L';
+  return Math.round(n).toLocaleString('en-IN');
+}
+
+function toggleAcc(idx) {
+  const body  = document.getElementById('body-' + idx);
+  const chev  = document.getElementById('chev-' + idx);
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+  chev.style.color     = isOpen ? 'var(--muted)' : 'var(--gold)';
+}
+
+// ─── DOWNLOAD FUNCTIONS ───────────────────────────────────
+function downloadHTML() {
+  const blob = new Blob([document.documentElement.outerHTML], { type: 'text/html' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'tradebook-analysis.html'; a.click();
+}
+function downloadPDF() {
+  window.print();
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+  const name = file.name.toLowerCase();
+  const isXLSX = name.endsWith('.xlsx') || name.endsWith('.xls');
+
+  if (isXLSX) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+
+        // sheet_to_json with header:1 gives raw arrays — lets us find the real header row
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+        // Find the row that looks like actual column headers
+        // Zerodha XLSX has 7+ branding/summary rows before real headers
+        // Column names are Title Case in real files — normalise before comparing
+        const KNOWN_HEADERS = ['symbol','isin','trade_date','trade date','exchange','segment',
+                               'series','trade_type','trade type','transaction_type','buy/sell',
+                               'quantity','qty','price','auction','order_id','order_execution_time'];
+        let headerRowIdx = 0;
+        for (let i = 0; i < Math.min(raw.length, 15); i++) {
+          const rowNorm = raw[i].map(c => String(c).trim().toLowerCase().replace(/\s+/g,'_'));
+          const matches = rowNorm.filter(c => KNOWN_HEADERS.includes(c) || KNOWN_HEADERS.includes(c.replace(/_/g,' '))).length;
+          if (matches >= 2) { headerRowIdx = i; break; }
+        }
+
+        const headers = raw[headerRowIdx].map(c => String(c).trim().toLowerCase().replace(/\s+/g,'_'));
+        const rows = raw.slice(headerRowIdx + 1)
+          .filter(r => r.some(c => String(c).trim()))
+          .map(r => {
+            const out = {};
+            headers.forEach((h, i) => { out[h] = String(r[i] ?? '').trim(); });
+            return out;
+          });
+
+        if (!rows.length) {
+          alert('XLSX parsed but no data rows found.\n\nHeaders detected at row ' + (headerRowIdx+1) + ':\n' + headers.filter(Boolean).join(', '));
+          return;
+        }
+
+        renderDashboard(rows, file.name);
+      } catch (err) {
+        alert('Could not parse XLSX.\n\nError: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const rows = parseCSV(ev.target.result);
+      renderDashboard(rows, file.name);
+    };
+    reader.readAsText(file);
+  }
+}
+
+document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+function loadSampleData() {
+  renderDashboard(generateSampleData(), 'sample_trades.csv');
+}
+
+function resetDashboard() {
+  document.getElementById('upload-section').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+</script>
+</body>
+</html>
